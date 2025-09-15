@@ -1,16 +1,531 @@
-<!DOCTYPE html>
+<!--
+ไฟล์นี้เป็นหน้าเว็บแบบไฟล์เดียว (single-file) ใช้สำหรับบันทึกการซื้อเลข (3 ตัว, 2 ตัวบน/ล่าง)
+มีฟังก์ชัน:
+ - หน้า Login / Logout (session เก็บใน localStorage)
+ - ฟอร์มเพิ่มรายการซื้อ: ชื่อลูกค้า, ประเภทเลข, เลขที่ซื้อ, จำนวนเงิน
+ - กำหนดเลขอั้น (blocked numbers)
+ - กำหนดเลขที่ถูกรางวัล และคำนวณยอดที่ถูกรวมตามเรทจ่าย (65/90/450)
+ - สรุปยอดขายรวมต่อรอบ และสรุปยอดที่ถูก
+ - Export CSV
+
+วิธีใช้:
+ - เปิดไฟล์นี้ในเบราว์เซอร์ (double-click หรือเปิดผ่าน server)
+ - Login ด้วย: user="admin" password="password123" (สามารถแก้ค่าได้ในสคริปต์)
+ - เพิ่มรายการซื้อ หรือล็อกเลขอั้น/เลขถูก จากนั้นกดปุ่มคำนวณ
+-->
+
+<!doctype html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lottery Website</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ระบบบันทึกหวย - บันทึกเลข / สรุปยอด</title>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-    h1 { color: #2c3e50; }
+    :root{--bg:#0f172a;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8;--glass: rgba(255,255,255,0.03)}
+    *{box-sizing:border-box}
+    body{font-family:Inter, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;margin:0;background:linear-gradient(180deg,#071024 0%, #07122a 100%);color:#e6eef6}
+    .container{max-width:1100px;margin:36px auto;padding:20px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    h1{font-size:20px;margin:0}
+    .card{background:var(--card);padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.6);}
+    .grid{display:grid;gap:12px}
+    .cols-2{grid-template-columns:1fr 360px}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input[type=text], input[type=number], select, textarea{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+    button{background:var(--accent);border:0;padding:8px 12px;border-radius:8px;color:#022;cursor:pointer;font-weight:600}
+    .muted{color:var(--muted);font-size:13px}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:8px;border-bottom:1px dashed rgba(255,255,255,0.03);text-align:left;font-size:14px}
+    th{font-size:13px;color:var(--muted)}
+    .small{font-size:13px}
+    .tag{display:inline-block;padding:6px 8px;border-radius:999px;background:var(--glass);color:var(--muted);font-size:12px}
+    .danger{background:#3b021f;color:#ffb6c1}
+    .success{background:#022c22;color:#c6ffd9}
+    .controls{display:flex;gap:8px;align-items:center}
+    .topbar{display:flex;gap:12px;align-items:center}
+    .hidden{display:none}
+    .center{text-align:center}
+    .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+    .right{text-align:right}
+    footer{margin-top:18px;color:var(--muted);font-size:13px}
+    /* responsive */
+    @media(max-width:900px){.cols-2{grid-template-columns:1fr}.container{padding:12px}}
   </style>
 </head>
 <body>
-  <h1>ยินดีต้อนรับสู่เว็บ Lottery Website</h1>
-  <p>นี่คือตัวอย่างหน้าแรกของเว็บคุณ</p>
+  <div class="container">
+    <header>
+      <div>
+        <h1><i class="bi bi-journal-text"></i> ระบบบันทึกเลขหวย — บันทึกการซื้อ & สรุปยอด</h1>
+        <div class="muted">รองรับ: 3 ตัว / 2 ตัวบน-ล่าง • เรทจ่าย: 65 / 90 / 450</div>
+      </div>
+      <div id="userBox" class="card" style="padding:10px;display:flex;gap:12px;align-items:center">
+        <!-- login area จะถูกควบคุมด้วย JS -->
+        <div id="authArea"></div>
+      </div>
+    </header>
+
+    <!-- Login Form (แสดงเมื่อยังไม่ล็อกอิน) -->
+    <div id="loginCard" class="card" style="max-width:440px;margin-bottom:12px">
+      <h3 style="margin-top:0">เข้าสู่ระบบ</h3>
+      <div class="muted">กรุณาเข้าสู่ระบบเพื่อใช้งานระบบบันทึก</div>
+      <div style="margin-top:12px">
+        <label>ผู้ใช้งาน</label>
+        <input id="loginUser" type="text" placeholder="username">
+      </div>
+      <div style="margin-top:8px">
+        <label>รหัสผ่าน</label>
+        <input id="loginPass" type="password" placeholder="password">
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+        <button id="btnLogin">เข้าสู่ระบบ</button>
+        <button id="btnDemo" class="btn-ghost">ใช้ตัวอย่าง (demo)</button>
+        <div class="muted" style="margin-left:auto">ผู้ใช้ทดสอบ: admin / password123</div>
+      </div>
+    </div>
+
+    <!-- Main app -->
+    <div id="app" class="hidden">
+      <div class="grid cols-2" style="gap:16px;">
+        <div>
+          <div class="card">
+            <h3 style="margin-top:0">เพิ่มรายการซื้อ</h3>
+            <div style="display:grid;grid-template-columns:1fr 140px;gap:8px;align-items:end">
+              <div>
+                <label>ชื่อผู้ซื้อ</label>
+                <input id="custName" type="text" placeholder="ชื่อ-นามสกุล หรือหมายเหตุ">
+              </div>
+              <div>
+                <label>ประเภท</label>
+                <select id="typeSelect">
+                  <option value="3up">3 ตัว บน</option>
+                  <option value="3down">3 ตัว ล่าง</option>
+                  <option value="2up">2 ตัว บน</option>
+                  <option value="2down">2 ตัว ล่าง</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 120px;gap:8px;margin-top:8px;align-items:end">
+              <div>
+                <label>เลขที่ซื้อ</label>
+                <input id="numberInput" type="text" placeholder="เช่น 123 หรือ 45" maxlength="3">
+                <div class="muted small">ใส่เลขตามประเภท (3 ตัว = 000-999, 2 ตัว = 00-99)</div>
+              </div>
+              <div>
+                <label>จำนวนเงิน (บาท)</label>
+                <input id="amountInput" type="number" min="1" step="1" placeholder="จำนวนเงิน">
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+              <button id="btnAdd">เพิ่มรายการ</button>
+              <button id="btnClearInputs" class="btn-ghost">ล้างฟอร์ม</button>
+              <button id="btnExport" class="btn-ghost">Export CSV</button>
+              <div style="margin-left:auto" class="muted">รวมยอดขายปัจจุบัน: <span id="totalSales">0</span> บาท</div>
+            </div>
+
+            <table id="purchasesTable" style="margin-top:12px">
+              <thead>
+                <tr><th>ชื่อ</th><th>ประเภท</th><th>เลข</th><th>จำนวน</th><th class="right">จัดการ</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <h3 style="margin-top:0">กำหนดเลขอั้น (Blocked Numbers)</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input id="blockedInput" type="text" placeholder="ตัวอย่าง: 12, 777, 05">
+              <button id="btnAddBlocked" class="btn-ghost">เพิ่ม</button>
+              <button id="btnClearBlocked" class="btn-ghost">เคลียร์</button>
+            </div>
+            <div style="margin-top:8px" id="blockedList" class="muted small"></div>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <h3 style="margin-top:0">กำหนดเลขที่ถูกรางวัล</h3>
+            <div style="display:grid;gap:8px">
+              <div style="display:flex;gap:8px;align-items:end">
+                <div style="flex:1">
+                  <label>3 ตัว บน </label>
+                  <input id="win3up" type="text" placeholder="ตัวอย่าง: 123">
+                </div>
+                <div style="width:160px">
+                  <label>เรทการจ่าย (ต่อบาท)</label>
+                  <div class="muted small">3 ตัว: <b id="rate3">450</b> บาท</div>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:end">
+                <div style="flex:1">
+                  <label>3 ตัว ล่าง </label>
+                  <input id="win3down" type="text" placeholder="ตัวอย่าง: 123">
+                </div>
+                <div style="width:160px">
+                  <label>เรทการจ่าย (ต่อบาท)</label>
+                  <div class="muted small">3 ตัว: <b id="rate3">450</b> บาท</div>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:8px;align-items:end">
+                <div style="flex:1">
+                  <label>2 ตัว บน</label>
+                  <input id="win2up" type="text" placeholder="ตัวอย่าง: 45">
+                </div>
+                <div style="width:160px">
+                  <div class="muted small">2 ตัว: <b id="rate2">90</b> บาท</div>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:8px;align-items:end">
+                <div style="flex:1">
+                  <label>2 ตัว ล่าง</label>
+                  <input id="win2down" type="text" placeholder="ตัวอย่าง: 45">
+                </div>
+                <div style="width:160px">
+                  <div class="muted small">เรทที่กำหนดไว้: <b>65</b> (ใช้ในตัวอย่างหรือตามกติกา)</div>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:8px">
+                <button id="btnCalc">คำนวณยอดที่ถูก</button>
+                <button id="btnClearWins" class="btn-ghost">ล้างเลขถูก</button>
+                <div style="margin-left:auto" class="muted">รวมจ่ายทั้งหมด: <b id="totalPayout">0</b> บาท</div>
+              </div>
+            </div>
+
+            <div style="margin-top:12px">
+              <table id="winsTable">
+  <thead><tr>
+    <th>ชื่อผู้ซื้อ</th>
+    <th>3 ตัวบน</th>
+    <th>3 ตัวล่าง</th>
+    <th>2 ตัวบน</th>
+    <th>2 ตัวล่าง</th>
+    <th class="right">ยอดจ่ายรวม</th>
+  </tr></thead>
+  <tbody></tbody>
+</table>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <h3 style="margin-top:0">สรุปภาพรวม / ค้นหา</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input id="searchInput" type="text" placeholder="ค้นหา ชื่อ หรือ เลข...">
+              <button id="btnSearch" class="btn-ghost">ค้นหา</button>
+              <button id="btnResetSearch" class="btn-ghost">รีเซ็ต</button>
+            </div>
+
+            <div style="margin-top:12px">
+              <div class="muted">ยอดขายรวมทั้งหมด (ปัจจุบัน):</div>
+              <div style="font-size:22px;font-weight:700;margin-top:8px"><span id="summaryTotal">0</span> บาท</div>
+
+              <div style="margin-top:12px" class="muted">จำนวนรายการทั้งหมด: <span id="summaryCount">0</span></div>
+
+              <div style="margin-top:12px">
+                <button id="btnClearAll" class="btn-ghost">ลบข้อมูลทั้งหมด</button>
+                <button id="btnSeed" class="btn-ghost">เติมข้อมูลตัวอย่าง</button>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <h3 style="margin-top:0">รายการเลขที่ถูกรางวัล (และสรุปการจ่าย)</h3>
+            <div id="winsSummary" class="muted small">ยังไม่มีการคำนวณ</div>
+          </div>
+
+        </div>
+      </div>
+
+      <footer class="muted">ระบบบันทึกเลขหวย</footer>
+    </div>
+  </div>
+
+  <script>
+    /* ====== Configuration ====== */
+    const CONFIG = {
+      demoUser: 'admin', demoPass: 'password123',
+      rate3: 450, rate2: 90, rate2alt: 65 // user mentioned rates 65/90/450
+    };
+
+    /* ====== State & Storage Keys ====== */
+    const KEY = 'lottery_app_v1';
+    let state = {
+      purchases: [], // {id, name, type, num, amount}
+      blocked: [],
+      wins: {threeUp:null, threeDown:null, twoUp:null, twoDown:null}
+    };
+
+    function saveState(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+    function loadState(){ const s = localStorage.getItem(KEY); if(s) state = JSON.parse(s); updateUI(); }
+
+    /* ====== Auth ====== */
+    const authArea = document.getElementById('authArea');
+    const loginCard = document.getElementById('loginCard');
+    const appEl = document.getElementById('app');
+
+    function isLoggedIn(){ return !!localStorage.getItem('lottery_user'); }
+    function requireLogin(){ if(isLoggedIn()){ loginCard.classList.add('hidden'); appEl.classList.remove('hidden'); renderAuth(); } else { loginCard.classList.remove('hidden'); appEl.classList.add('hidden'); renderAuth(); }}
+
+    function renderAuth(){ authArea.innerHTML = ''; if(isLoggedIn()){ const u = localStorage.getItem('lottery_user'); const span = document.createElement('div'); span.innerHTML = `<div style=\"display:flex;gap:8px;align-items:center\"><div class=\"tag\">${u}</div><button id=\"btnLogout\" class=\"btn-ghost\">Logout</button></div>`; authArea.appendChild(span); document.getElementById('btnLogout').onclick = ()=>{ localStorage.removeItem('lottery_user'); requireLogin(); } } else { authArea.innerHTML = '<div class="muted">ยังไม่ได้ล็อกอิน</div>'; }}
+
+    document.getElementById('btnLogin').addEventListener('click', ()=>{
+      const u = document.getElementById('loginUser').value.trim();
+      const p = document.getElementById('loginPass').value;
+      if(u === CONFIG.demoUser && p === CONFIG.demoPass){ localStorage.setItem('lottery_user', u); requireLogin(); alert('ล็อกอินสำเร็จ'); } else { alert('ชื่อผู้ใช้หรือรหัสผ่านผิด'); }
+    });
+    document.getElementById('btnDemo').addEventListener('click', ()=>{ document.getElementById('loginUser').value = CONFIG.demoUser; document.getElementById('loginPass').value = CONFIG.demoPass; });
+
+    /* ====== Purchase ====== */
+    const purchasesTableBody = document.querySelector('#purchasesTable tbody');
+    const totalSalesEl = document.getElementById('totalSales');
+    const summaryTotalEl = document.getElementById('summaryTotal');
+    const summaryCountEl = document.getElementById('summaryCount');
+
+    function addPurchase(p){ p.id = Date.now()+Math.random().toString(36).slice(2,8); state.purchases.push(p); saveState(); updateUI(); }
+    function deletePurchase(id){ state.purchases = state.purchases.filter(x=>x.id!==id); saveState(); updateUI(); }
+
+    document.getElementById('btnAdd').addEventListener('click', ()=>{
+      const name = document.getElementById('custName').value.trim();
+      const type = document.getElementById('typeSelect').value;
+      let num = document.getElementById('numberInput').value.trim();
+      const amt = Number(document.getElementById('amountInput').value) || 0;
+      if(!name || !num || amt<=0){ alert('กรุณากรอกข้อมูลให้ครบ (ชื่อ, เลข, จำนวนเงิน)'); return; }
+      // normalize number: pad 2-digit with leading zero if needed
+      if(type==='2up' || type==='2down'){ num = num.padStart(2,'0').slice(-2); }
+      if(type==='3up' || type==='3down'){ num = num.padStart(3,'0').slice(-3); }
+      addPurchase({name, type, num, amount:amt});
+      document.getElementById('custName').value=''; document.getElementById('numberInput').value=''; document.getElementById('amountInput').value='';
+    });
+
+    document.getElementById('btnClearInputs').addEventListener('click', ()=>{ document.getElementById('custName').value=''; document.getElementById('numberInput').value=''; document.getElementById('amountInput').value=''; });
+
+    function renderPurchases(filter=null){ purchasesTableBody.innerHTML=''; let total=0; const data = filter? state.purchases.filter(filter): state.purchases; data.forEach(p=>{
+      total += Number(p.amount);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${escapeHtml(p.name)}</td><td>${typeLabel(p.type)}</td><td><strong>${p.num}</strong>${state.blocked.includes(p.num)?' <span class="tag danger">อั้น</span>':''}</td><td>${p.amount}</td><td class=\"right\"><button class=\"btn-ghost\" data-id=\"${p.id}\">ลบ</button></td>`;
+      purchasesTableBody.appendChild(tr);
+      tr.querySelector('button').addEventListener('click', ()=>{ if(confirm('ลบรายการนี้?')) deletePurchase(p.id); });
+    });
+      totalSalesEl.textContent = formatNumber(total);
+      summaryTotalEl.textContent = formatNumber(total);
+      summaryCountEl.textContent = data.length;
+    }
+
+    function typeLabel(t) { 
+    if (t === '3up') {
+        return '3 ตัว (บน)';
+    } else if (t === '3down') {
+        return '3 ตัว (ล่าง)';
+    } else if (t === '2up') {
+        return '2 ตัว (บน)';
+    } else if (t === '2down') {
+        return '2 ตัว (ล่าง)';
+    }
+    return ''; // คืนค่าว่างถ้าไม่ตรงกับประเภทใดๆ
+}
+
+    /* ====== Blocked numbers ====== */
+    document.getElementById('btnAddBlocked').addEventListener('click', ()=>{
+      const raw = document.getElementById('blockedInput').value.trim(); if(!raw) return;
+      const arr = raw.split(',').map(s=>s.trim()).filter(Boolean).map(x=>x.padStart(x.length===1?2: x.length,'0'));
+      // accept '777' or '12' both; keep unique
+      state.blocked = Array.from(new Set([...state.blocked, ...arr])); saveState(); document.getElementById('blockedInput').value=''; updateUI();
+    });
+    document.getElementById('btnClearBlocked').addEventListener('click', ()=>{ if(confirm('เคลียร์เลขอั้นทั้งหมด?')){ state.blocked = []; saveState(); updateUI(); } });
+
+    function renderBlocked(){ const el = document.getElementById('blockedList'); if(state.blocked.length===0) el.textContent='ไม่มีเลขอั้น'; else el.innerHTML = state.blocked.map(n=>`<span class="tag">${n}</span>`).join(' ');
+    }
+
+    /* ====== Wins / Calculation ====== */
+    document.getElementById('btnCalc').addEventListener('click', ()=>{
+    const w3up_val = (document.getElementById('win3up').value || '').trim();
+    const w3down_val = (document.getElementById('win3down').value || '').trim();
+    const w2up_val = (document.getElementById('win2up').value || '').trim();
+    const w2down_val = (document.getElementById('win2down').value || '').trim();
+
+    state.wins.threeUp = w3up_val ? w3up_val.padStart(3, '0') : null;
+    state.wins.threeDown = w3down_val ? w3down_val.padStart(3, '0') : null;
+    state.wins.twoUp = w2up_val ? w2up_val.padStart(2, '0') : null;
+    state.wins.twoDown = w2down_val ? w2down_val.padStart(2, '0') : null;
+
+    saveState();
+    calculatePayouts();
+    updateUI();
+});
+document.getElementById('btnCalc').addEventListener('click', ()=>{
+    const w3up_val = (document.getElementById('win3up').value || '').trim();
+    const w3down_val = (document.getElementById('win3down').value || '').trim();
+    const w2up_val = (document.getElementById('win2up').value || '').trim();
+    const w2down_val = (document.getElementById('win2down').value || '').trim();
+
+    state.wins.threeUp = w3up_val ? w3up_val.padStart(3, '0') : null;
+    state.wins.threeDown = w3down_val ? w3down_val.padStart(3, '0') : null;
+    state.wins.twoUp = w2up_val ? w2up_val.padStart(2, '0') : null;
+    state.wins.twoDown = w2down_val ? w2down_val.padStart(2, '0') : null;
+
+    saveState();
+    calculatePayouts();
+    updateUI();
+});
+document.getElementById('btnClearWins').addEventListener('click', ()=>{ 
+    state.wins = {threeUp:null, threeDown:null, twoUp:null, twoDown:null}; 
+    saveState(); 
+    updateUI(); 
+});
+
+function calculatePayouts() {
+    const tbody = document.querySelector('#winsTable tbody');
+    tbody.innerHTML = ''; // ล้างข้อมูลเก่าในตาราง
+    let totalPay = 0;
+    
+    // เปลี่ยนโครงสร้างการเก็บข้อมูล เพื่อรวมเลขที่ถูกและยอดรวม
+    let customerWinnings = {}; 
+
+    // 3 ตัวบน
+    if (state.wins.threeUp) {
+        const matches = state.purchases.filter(p => p.type === '3up' && p.num === state.wins.threeUp);
+        matches.forEach(m => {
+            const pay = m.amount * CONFIG.rate3;
+            totalPay += pay;
+            const name = m.name;
+            if (!customerWinnings[name]) {
+                customerWinnings[name] = { total: 0, win3up: '', win3down: '', win2up: '', win2down: '' };
+            }
+            customerWinnings[name].total += pay;
+            customerWinnings[name].win3up = m.num;
+        });
+    }
+
+    // 3 ตัวล่าง
+    if (state.wins.threeDown) {
+        const matches = state.purchases.filter(p => p.type === '3down' && p.num === state.wins.threeDown);
+        matches.forEach(m => {
+            const pay = m.amount * CONFIG.rate3;
+            totalPay += pay;
+            const name = m.name;
+            if (!customerWinnings[name]) {
+                customerWinnings[name] = { total: 0, win3up: '', win3down: '', win2up: '', win2down: '' };
+            }
+            customerWinnings[name].total += pay;
+            customerWinnings[name].win3down = m.num;
+        });
+    }
+
+    // 2 ตัวบน
+    if (state.wins.twoUp) {
+        const matches = state.purchases.filter(p => p.type === '2up' && p.num === state.wins.twoUp);
+        matches.forEach(m => {
+            const pay = m.amount * CONFIG.rate2;
+            totalPay += pay;
+            const name = m.name;
+            if (!customerWinnings[name]) {
+                customerWinnings[name] = { total: 0, win3up: '', win3down: '', win2up: '', win2down: '' };
+            }
+            customerWinnings[name].total += pay;
+            customerWinnings[name].win2up = m.num;
+        });
+    }
+
+    // 2 ตัวล่าง
+    if (state.wins.twoDown) {
+        const matches = state.purchases.filter(p => p.type === '2down' && p.num === state.wins.twoDown);
+        matches.forEach(m => {
+            const pay = m.amount * CONFIG.rate2alt;
+            totalPay += pay;
+            const name = m.name;
+            if (!customerWinnings[name]) {
+                customerWinnings[name] = { total: 0, win3up: '', win3down: '', win2up: '', win2down: '' };
+            }
+            customerWinnings[name].total += pay;
+            customerWinnings[name].win2down = m.num;
+        });
+    }
+
+    // สร้างแถวในตารางสำหรับแต่ละคนที่มีชื่ออยู่ใน customerWinnings
+    for (const name in customerWinnings) {
+        const winnings = customerWinnings[name];
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${escapeHtml(name)}</td>
+            <td>${winnings.win3up}</td>
+            <td>${winnings.win3down}</td>
+            <td>${winnings.win2up}</td>
+            <td>${winnings.win2down}</td>
+            <td class="right">${formatNumber(winnings.total)}</td>
+        `;
+        tbody.appendChild(tr);
+    }
+
+    document.getElementById('totalPayout').textContent = formatNumber(totalPay);
+    document.getElementById('winsSummary').textContent = `คำนวณแล้ว: จ่ายทั้งหมด ${formatNumber(totalPay)} บาท`;
+}
+
+// ลบฟังก์ชัน appendWinRow ทิ้งไปได้เลยเพราะไม่จำเป็นแล้ว
+    function appendWinRow(name, num, type, qty, rate, pay){ 
+    const tbody = document.querySelector('#winsTable tbody'); 
+    const tr = document.createElement('tr'); 
+    tr.innerHTML = `<td>${escapeHtml(name)}</td>
+    <td>${escapeHtml(num)}</td>
+    <td>${escapeHtml(type)}</td>
+    <td>${escapeHtml(qty)}</td>
+    <td>${escapeHtml(rate)}</td>
+    <td>${formatNumber(pay)}</td>`; 
+    tbody.appendChild(tr); 
+}
+
+    /* ====== Utilities ====== */
+    function updateUI(){ renderAuth(); renderPurchases(); renderBlocked(); calculatePayouts(); }
+    function formatNumber(n){ return Number(n).toLocaleString('en-US'); }
+    function escapeHtml(s){ return (s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    /* ====== Search / Export / Seed / Clear ====== */
+    document.getElementById('btnExport').addEventListener('click', ()=>{
+  if(state.purchases.length===0){ alert('ไม่มีข้อมูลส่งออก'); return; }
+  
+  // สร้างอาร์เรย์สำหรับหัวข้อและข้อมูล
+  const csv = ['ชื่อ,ประเภท,เลข,จำนวน'];
+  
+  // เพิ่มข้อมูลลงในอาร์เรย์
+  state.purchases.forEach(p=> csv.push([`"${p.name}"`,typeLabel(p.type),p.num,p.amount].join(',')));
+  
+  // รวมอาร์เรย์เป็นข้อความเดียว
+  const csvString = csv.join('\n');
+  
+  // เพิ่ม BOM (\uFEFF) เข้าไปที่หน้าข้อความ CSV
+  const bom = "\uFEFF";
+  const blob = new Blob([bom + csvString], {type:'text/csv;charset=utf-8;'});
+  
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'purchases.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+    document.getElementById('btnClearAll').addEventListener('click', ()=>{ if(confirm('ต้องการลบข้อมูลทั้งหมด (ไม่สามารถกู้คืนได้) ?')){ state = {purchases:[], blocked:[], wins:{three:null,twoUp:null,twoDown:null}}; saveState(); updateUI(); } });
+
+    document.getElementById('btnSeed').addEventListener('click', ()=>{
+      const sample = [
+        {name:'สมชาย', type:'3', num:'123', amount:50},
+        {name:'จิรา', type:'2up', num:'45', amount:100},
+        {name:'สมศรี', type:'2down', num:'45', amount:20},
+        {name:'ลูกค้า A', type:'3', num:'777', amount:10}
+      ]; state.purchases = state.purchases.concat(sample); saveState(); updateUI();
+    });
+
+    /* ====== Helpers ====== */
+    function pad(n,len){ return (n+'').padStart(len,'0'); }
+
+    // load on start
+    loadState(); requireLogin();
+
+  </script>
 </body>
 </html>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
