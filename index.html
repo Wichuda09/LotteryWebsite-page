@@ -60,11 +60,11 @@
       <div style="margin-top:8px">
         <label>รหัสผ่าน</label>
         <input id="loginPass" type="password" placeholder="password">
-      </div>
-      <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
-        <button id="btnLogin">เข้าสู่ระบบ</button>
-        <button id="btnDemo" class="btn-ghost">ใช้ตัวอย่าง (demo)</button>
-        <div class="muted" style="margin-left:auto">ผู้ใช้ทดสอบ: admin / password123</div>
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+          <button id="btnLogin">เข้าสู่ระบบ</button>
+          <button id="btnDemo" class="btn-ghost">ใช้ตัวอย่าง (demo)</button>
+          <div class="muted" style="margin-left:auto">ผู้ใช้ทดสอบ: admin / password123</div>
+        </div>
       </div>
     </div>
 
@@ -163,7 +163,7 @@
                   <input id="win2up" type="text" placeholder="ตัวอย่าง: 45">
                 </div>
                 <div style="width:160px">
-                  <div class="muted small">2 ตัว: <b id="rate2">90</b> บาท</div>
+                  <div class="muted small">2 ตัว: <b id="rate2">65</b> บาท</div>
                 </div>
               </div>
 
@@ -186,16 +186,16 @@
 
             <div style="margin-top:12px">
               <table id="winsTable">
-  <thead><tr>
-    <th>ชื่อผู้ซื้อ</th>
-    <th>3 ตัวบน</th>
-    <th>3 ตัวโต๊ด</th>
-    <th>2 ตัวบน</th>
-    <th>2 ตัวล่าง</th>
-    <th class="right">ยอดจ่ายรวม</th>
-  </tr></thead>
-  <tbody></tbody>
-</table>
+                <thead><tr>
+                  <th>ชื่อผู้ซื้อ</th>
+                  <th>3 ตัวบน</th>
+                  <th>3 ตัวโต๊ด</th>
+                  <th>2 ตัวบน</th>
+                  <th>2 ตัวล่าง</th>
+                  <th class="right">ยอดจ่ายรวม</th>
+                </tr></thead>
+                <tbody></tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -212,14 +212,13 @@
             <div style="margin-top:12px">
               <div class="muted">ยอดขายรวมทั้งหมด (ปัจจุบัน):</div>
               <div style="font-size:22px;font-weight:700;margin-top:8px"><span id="summaryTotal">0</span> บาท</div>
-                <div style="margin-top:12px" class="muted">จำนวนรายการทั้งหมด: <span id="summaryCount">0</span></div>
+              <div style="margin-top:12px" class="muted">จำนวนรายการทั้งหมด: <span id="summaryCount">0</span></div>
 
               <div style="margin-top:12px">
                 <button id="btnClearAll" class="btn-ghost">ลบข้อมูลทั้งหมด</button>
                 <button id="btnSeed" class="btn-ghost">เติมข้อมูลตัวอย่าง</button>
               </div>
             </div>
-
           </div>
 
           <div class="card" style="margin-top:12px">
@@ -236,6 +235,37 @@
               <tbody></tbody>
             </table>
           </div>
+        
+          <div class="card" style="margin-top:12px">
+            <h3 style="margin-top:0">สรุปยอดซื้อ</h3>
+            <div id="summaryTables">
+              <h4 style="margin:12px 0 6px">ยอดซื้อตามประเภทเลข</h4>
+              <table id="summaryTypeTable">
+                <thead>
+                  <tr>
+                    <th>ประเภท</th>
+                    <th class="right">จำนวนรายการ</th>
+                    <th class="right">ยอดรวม (บาท)</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+
+              <h4 style="margin:12px 0 6px">สรุปยอดซื้อแต่ละเลข</h4>
+              <table id="summaryNumberTable">
+                <thead>
+                  <tr>
+                    <th>ประเภท</th>
+                    <th>เลข</th>
+                    <th class="right">ยอดที่รับ</th>
+                    <th class="right">ยอดคงเหลือ</th>
+                    <th class="right">ยอดส่งออก</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
 
         </div>
       </div>
@@ -248,7 +278,7 @@
     /* ====== Configuration ====== */
     const CONFIG = {
       demoUser: 'admin', demoPass: 'password123',
-      rate3: 450, rate3tod: 90, rate2: 90, rate2alt: 65
+      rate3: 450, rate3tod: 90, rate2: 65, rate2alt: 65
     };
 
     /* ====== State & Storage Keys ====== */
@@ -344,17 +374,31 @@
         document.getElementById('twoDownInput').value='';
     });
 
-    function renderPurchases(filter=null){ purchasesTableBody.innerHTML=''; let total=0; const data = filter? state.purchases.filter(filter): state.purchases; data.forEach(p=>{
-      total += Number(p.amount);
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${escapeHtml(p.name)}</td><td>${typeLabel(p.type)}</td><td><strong>${p.num}</strong>${state.blocked.includes(p.num)?' <span class="tag danger">อั้น</span>':''}</td><td>${p.amount}</td><td class=\"right\"><button class=\"btn-ghost\" data-id=\"${p.id}\">ลบ</button></td>`;
-      purchasesTableBody.appendChild(tr);
-      tr.querySelector('button').addEventListener('click', ()=>{ if(confirm('ลบรายการนี้?')) deletePurchase(p.id); });
+    function renderPurchases(purchasesToRender = state.purchases) {
+    const purchasesTableBody = document.querySelector('#purchasesTable tbody');
+    purchasesTableBody.innerHTML = '';
+    let total = 0;
+
+    purchasesToRender.forEach(p => {
+        total += Number(p.amount);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${escapeHtml(p.name)}</td>
+            <td>${typeLabel(p.type)}</td>
+            <td><strong>${p.num}</strong>${state.blocked.includes(p.num) ? ' <span class="tag danger">อั้น</span>' : ''}</td>
+            <td>${p.amount}</td>
+            <td class=\"right\"><button class=\"btn-ghost\" data-id=\"${p.id}\">ลบ</button></td>
+        `;
+        purchasesTableBody.appendChild(tr);
+        tr.querySelector('button').addEventListener('click', () => {
+            if (confirm('ลบรายการนี้?')) deletePurchase(p.id);
+        });
     });
-      totalSalesEl.textContent = formatNumber(total);
-      summaryTotalEl.textContent = formatNumber(total);
-      summaryCountEl.textContent = data.length;
-    }
+
+    document.getElementById('totalSales').textContent = formatNumber(total);
+    document.getElementById('summaryTotal').textContent = formatNumber(total);
+    document.getElementById('summaryCount').textContent = purchasesToRender.length;
+}
 
     function typeLabel(t) { 
     if (t === '3up') {
@@ -495,46 +539,161 @@ function calculatePayouts() {
 }
 
     /* ====== Utilities ====== */
-    function updateUI(){ renderAuth(); renderPurchases(); renderBlocked(); calculatePayouts(); }
+    function updateUI(){ 
+        renderAuth(); 
+        renderPurchases(); 
+        renderBlocked(); 
+        calculatePayouts(); 
+        renderSummaryTypeTable();
+        renderNumberSummaryTable();
+    }
+
     function formatNumber(n){ return Number(n).toLocaleString('en-US'); }
     function escapeHtml(s){ return (s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
     /* ====== Search / Export / Seed / Clear ====== */
     document.getElementById('btnExport').addEventListener('click', ()=>{
-  if(state.purchases.length===0){ alert('ไม่มีข้อมูลส่งออก'); return; }
-  
-  // สร้างอาร์เรย์สำหรับหัวข้อและข้อมูล
-  const csv = ['ชื่อ,ประเภท,เลข,จำนวน'];
-  
-  // เพิ่มข้อมูลลงในอาร์เรย์
-  state.purchases.forEach(p=> csv.push([`"${p.name}"`,typeLabel(p.type),p.num,p.amount].join(',')));
-  
-  // รวมอาร์เรย์เป็นข้อความเดียว
-  const csvString = csv.join('\n');
-  
-  // เพิ่ม BOM (\uFEFF) เข้าไปที่หน้าข้อความ CSV
-  const bom = "\uFEFF";
-  const blob = new Blob([bom + csvString], {type:'text/csv;charset=utf-8;'});
-  
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'purchases.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-});
+      if(state.purchases.length===0){ alert('ไม่มีข้อมูลส่งออก'); return; }
 
-    document.getElementById('btnClearAll').addEventListener('click', ()=>{ if(confirm('ต้องการลบข้อมูลทั้งหมด (ไม่สามารถกู้คืนได้) ?')){ state = {purchases:[], blocked:[], wins:{three:null,twoUp:null,twoDown:null}}; saveState(); updateUI(); } });
+      let csv = [];
+      const bom = "\uFEFF";
+      
+      // Part 1: Summary by Type
+      csv.push('ประเภท,จำนวนรายการ,ยอดรวม (บาท)');
+      const summaryByType = getSummaryByType();
+      for (const type in summaryByType) {
+          const data = summaryByType[type];
+          csv.push(`"${typeLabel(type)}",${data.count},${data.totalAmount}`);
+      }
+      
+      csv.push('\n'); // Add a separator line
+      
+      // Part 2: Summary by Number
+      csv.push('ประเภท,เลข,ยอดที่รับ,ยอดคงเหลือ,ยอดส่งออก');
+      const numberSummary = getNumberSummary();
+      numberSummary.forEach(item => {
+          csv.push(`"${typeLabel(item.type)}","${item.num}",${item.receivedAmount},${item.retainedAmount},${item.exportedAmount}`);
+      });
+
+      const csvString = csv.join('\n');
+      const blob = new Blob([bom + csvString], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'summary.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById('btnClearAll').addEventListener('click', ()=>{ if(confirm('ต้องการลบข้อมูลทั้งหมด (ไม่สามารถกู้คืนได้) ?')){ state = {purchases:[], blocked:[], wins:{threeUp:null,threeTod:null,twoUp:null,twoDown:null}}; saveState(); updateUI(); } });
 
     document.getElementById('btnSeed').addEventListener('click', ()=>{
       const sample = [
         {name:'สมชาย', type:'3up', num:'123', amount:50},
         {name:'จิรา', type:'2up', num:'45', amount:100},
         {name:'สมศรี', type:'2down', num:'45', amount:20},
-        {name:'ลูกค้า A', type:'3up', num:'777', amount:10}
+        {name:'ลูกค้า A', type:'3up', num:'777', amount:10},
+        {name:'สมชาย', type:'3tod', num:'231', amount:30},
+        {name:'สมหญิง', type:'2up', num:'88', amount:5},
+        {name:'ลูกค้า B', type:'2down', num:'10', amount:15},
       ]; 
       state.purchases = state.purchases.concat(sample); saveState(); updateUI();
     });
+
+    document.getElementById('btnSearch').addEventListener('click', () => {
+    const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+    const filteredPurchases = state.purchases.filter(purchase => {
+        return purchase.name.toLowerCase().includes(searchTerm) || purchase.num.includes(searchTerm);
+    });
+    renderPurchases(filteredPurchases);
+});
+
+    document.getElementById('btnResetSearch').addEventListener('click', () => {
+      document.getElementById('searchInput').value = '';
+      renderPurchases(state.purchases);
+    });
+
+    function getSummaryByType() {
+        const summary = {
+            '3up': { count: 0, totalAmount: 0 },
+            '3tod': { count: 0, totalAmount: 0 },
+            '2up': { count: 0, totalAmount: 0 },
+            '2down': { count: 0, totalAmount: 0 },
+        };
+        state.purchases.forEach(p => {
+            if (summary[p.type]) {
+                summary[p.type].count++;
+                summary[p.type].totalAmount += p.amount;
+            }
+        });
+        return summary;
+    }
+
+    function renderSummaryTypeTable() {
+      const summaryTableBody = document.querySelector('#summaryTypeTable tbody');
+      summaryTableBody.innerHTML = '';
+      const summary = getSummaryByType();
+      for (const type in summary) {
+        const data = summary[type];
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${typeLabel(type)}</td>
+          <td class="right">${data.count} รายการ</td>
+          <td class="right">${formatNumber(data.totalAmount)} บาท</td>
+        `;
+        summaryTableBody.appendChild(tr);
+      }
+    }
+
+    function getNumberSummary() {
+        const numberSummary = {};
+        const maxRetained = {'3up':0, '3tod':20, '2up':50, '2down':50};
+
+        state.purchases.forEach(p => {
+            const key = p.type + p.num; 
+            if (!numberSummary[key]) {
+                numberSummary[key] = {
+                    num: p.num,
+                    type: p.type,
+                    receivedAmount: 0,
+                };
+            }
+            numberSummary[key].receivedAmount += p.amount;
+        });
+
+        const sortedNumbers = Object.values(numberSummary).sort((a, b) => {
+            const typeOrder = ['3up', '3tod', '2up', '2down'];
+            const typeAIndex = typeOrder.indexOf(a.type);
+            const typeBIndex = typeOrder.indexOf(b.type);
+            if (typeAIndex !== typeBIndex) {
+                return typeAIndex - typeBIndex;
+            }
+            return a.num.localeCompare(b.num);
+        });
+
+        return sortedNumbers.map(item => {
+            const retainedAmount = Math.min(item.receivedAmount, maxRetained[item.type]);
+            const exportedAmount = item.receivedAmount - retainedAmount;
+            return {...item, retainedAmount, exportedAmount};
+        });
+    }
+
+    function renderNumberSummaryTable() {
+        const summaryTableBody = document.querySelector('#summaryNumberTable tbody');
+        summaryTableBody.innerHTML = '';
+        const numberSummary = getNumberSummary();
+        numberSummary.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${typeLabel(item.type)}</td>
+                <td><strong>${item.num}</strong></td>
+                <td class="right">${formatNumber(item.receivedAmount)}</td>
+                <td class="right">${formatNumber(item.retainedAmount)}</td>
+                <td class="right">${formatNumber(item.exportedAmount)}</td>
+            `;
+            summaryTableBody.appendChild(tr);
+        });
+    }
 
     // load on start
     loadState(); requireLogin();
