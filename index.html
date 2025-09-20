@@ -257,8 +257,8 @@
                   <tr>
                     <th>ประเภท</th>
                     <th>เลข</th>
+                    <th class="right">ยอดที่รวม</th>
                     <th class="right">ยอดที่รับ</th>
-                    <th class="right">ยอดคงเหลือ</th>
                     <th class="right">ยอดส่งออก</th>
                   </tr>
                 </thead>
@@ -569,7 +569,7 @@ function calculatePayouts() {
       csv.push('\n'); // Add a separator line
       
       // Part 2: Summary by Number
-      csv.push('ประเภท,เลข,ยอดที่รับ,ยอดคงเหลือ,ยอดส่งออก');
+      csv.push('ประเภท,เลข,ยอดที่รวม,ยอดที่รับ,ยอดส่งออก');
       const numberSummary = getNumberSummary();
       numberSummary.forEach(item => {
           csv.push(`"${typeLabel(item.type)}","${item.num}",${item.receivedAmount},${item.retainedAmount},${item.exportedAmount}`);
