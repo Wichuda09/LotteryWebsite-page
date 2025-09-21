@@ -62,8 +62,6 @@
         <input id="loginPass" type="password" placeholder="password">
         <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
           <button id="btnLogin">เข้าสู่ระบบ</button>
-          <button id="btnDemo" class="btn-ghost">ใช้ตัวอย่าง (demo)</button>
-          <div class="muted" style="margin-left:auto">ผู้ใช้ทดสอบ: admin / password123</div>
         </div>
       </div>
     </div>
@@ -270,14 +268,14 @@
         </div>
       </div>
 
-      <footer class="muted">ระบบบันทึกเลขหวย</footer>
+      <footer class="muted">ใช้ระบบให้มีความสุขนะจ๊ะ เฮงๆ รวยๆ </footer>
     </div>
   </div>
 
   <script>
     /* ====== Configuration ====== */
     const CONFIG = {
-      demoUser: 'admin', demoPass: 'password123',
+      demoUser: 'wichuda', demoPass: '0981462095Sai',
       rate3: 450, rate3tod: 90, rate2: 65, rate2alt: 65
     };
 
@@ -307,7 +305,7 @@
       const p = document.getElementById('loginPass').value;
       if(u === CONFIG.demoUser && p === CONFIG.demoPass){ localStorage.setItem('lottery_user', u); requireLogin(); alert('ล็อกอินสำเร็จ'); } else { alert('ชื่อผู้ใช้หรือรหัสผ่านผิด'); }
     });
-    document.getElementById('btnDemo').addEventListener('click', ()=>{ document.getElementById('loginUser').value = CONFIG.demoUser; document.getElementById('loginPass').value = CONFIG.demoPass; });
+    
 
     /* ====== Purchase ====== */
     const purchasesTableBody = document.querySelector('#purchasesTable tbody');
