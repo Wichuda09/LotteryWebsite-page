@@ -315,7 +315,6 @@
                             <th class="col-type">ประเภท</th>
                             <th style="width: 35%;">เลข</th>
                             <th style="width: 150px;">ยอดที่รวม</th>
-                            <th>จำนวน / กำไร</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -792,9 +791,10 @@ function renderHandwrittenSummaryTable() {
         // ถ้าไม่มีรายการเกินเลย ให้แสดงแถวเดียวและแจ้งว่าไม่มี
         if (numCount === 0) {
             const tr = document.createElement('tr');
+            // *** แก้ไข: ลด colspan จาก 3 เป็น 2 เพราะลบไป 1 คอลัมน์ ***
             tr.innerHTML = `
                 <td class="col-type">${typeLabel(typeKey)}</td>
-                <td class="col-number-data" colspan="3" style="text-align: center; color: var(--muted); height: 50px;">ไม่มีรายการซื้อที่เกินยอดรับ (50/20 บาท)</td>
+                <td class="col-number-data" colspan="2" style="text-align: center; color: var(--muted); height: 50px;">ไม่มีรายการซื้อที่เกินยอดรับ (50/20 บาท)</td>
             `;
             tbody.appendChild(tr);
             return;
@@ -805,11 +805,11 @@ function renderHandwrittenSummaryTable() {
         
         // สร้างแถวแรกพร้อม Rowspan
         const tr = document.createElement('tr');
+        // *** แก้ไข: ลบคอลัมน์สุดท้ายที่แสดง exportedAmount ออกไป ***
         tr.innerHTML = `
             <td class="col-type" rowspan="${numCount}">${group.label}</td>
             <td class="col-number-data">${firstItem.num}</td>
             <td class="col-amount-data">${formatNumber(firstItem.receivedAmount)}</td>
-            <td class="col-amount-data" style="color: #ffd700;">${formatNumber(firstItem.exportedAmount)}</td>
         `;
         tbody.appendChild(tr);
 
@@ -817,10 +817,10 @@ function renderHandwrittenSummaryTable() {
         for (let i = 1; i < numCount; i++) {
             const item = group.numbers[i];
             const nextTr = document.createElement('tr');
+            // *** แก้ไข: ลบคอลัมน์สุดท้ายที่แสดง exportedAmount ออกไป ***
             nextTr.innerHTML = `
                 <td class="col-number-data">${item.num}</td>
                 <td class="col-amount-data">${formatNumber(item.receivedAmount)}</td>
-                <td class="col-amount-data" style="color: #ffd700;">${formatNumber(item.exportedAmount)}</td>
             `;
             tbody.appendChild(nextTr);
         }
