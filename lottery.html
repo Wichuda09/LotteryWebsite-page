@@ -794,7 +794,7 @@ function renderHandwrittenSummaryTable() {
             // *** แก้ไข: ลด colspan จาก 3 เป็น 2 เพราะลบไป 1 คอลัมน์ ***
             tr.innerHTML = `
                 <td class="col-type">${typeLabel(typeKey)}</td>
-                <td class="col-number-data" colspan="2" style="text-align: center; color: var(--muted); height: 50px;">ไม่มีรายการซื้อที่เกินยอดรับ (50/20 บาท)</td>
+                <td class="col-number-data" colspan="2" style="text-align: center; color: var(--muted); height: 50px;">ไม่มีรายการที่ซื้อ</td>
             `;
             tbody.appendChild(tr);
             return;
