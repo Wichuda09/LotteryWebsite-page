@@ -35,6 +35,48 @@
     .right{text-align:right}
     footer{margin-top:18px;color:var(--muted);font-size:13px}
     /* responsive */
+    /* CSS เพิ่มเติมสำหรับตารางที่กำหนดเอง (ถ้ายังไม่ได้เพิ่ม) */
+.custom-summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+    border: 1px solid var(--muted); 
+}
+
+.custom-summary-table th,
+.custom-summary-table td {
+    border: 1px solid var(--muted);
+    padding: 12px 8px;
+    height: 50px;
+    text-align: left;
+    vertical-align: top; /* จัดชิดด้านบนเพื่อให้อารมณ์เหมือนเขียนในสมุด */
+}
+
+.custom-summary-table th {
+    background: rgba(255, 255, 255, 0.05);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    text-align: center;
+    vertical-align: middle;
+}
+
+.custom-summary-table .col-type {
+    width: 100px;
+    font-weight: 600;
+}
+
+.custom-summary-table .col-number-data {
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.custom-summary-table .col-amount-data {
+    text-align: right;
+    font-weight: 600;
+    color: #ffd700; /* สีทองสำหรับตัวเลข */
+}
     @media(max-width:900px){.cols-2{grid-template-columns:1fr}.container{padding:12px}}
   </style>
 </head>
@@ -265,10 +307,26 @@
             </div>
           </div>
 
+          <div class="card" style="margin-top:24px;">
+                <h3 style="margin-top:0;">สรุปยอดซื้อตามหัวเลข (สำหรับบันทึก)</h3>
+                <table id="handwrittenSummaryTable" class="custom-summary-table">
+                    <thead>
+                        <tr>
+                            <th class="col-type">ประเภท</th>
+                            <th style="width: 35%;">หัวเลข</th>
+                            <th style="width: 150px;">ยอดที่รวม</th>
+                            <th>จำนวน / กำไร</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </div>
+    
         </div>
       </div>
-
-      <footer class="muted">ใช้ระบบให้มีความสุขนะจ๊ะ เฮงๆ รวยๆ </footer>
+ 
+      <footer class="muted">ใช้ระบบให้มีความสุขจ้า เฮงๆ รวยๆ</footer>
     </div>
   </div>
 
@@ -567,10 +625,10 @@ function calculatePayouts() {
       csv.push('\n'); // Add a separator line
       
       // Part 2: Summary by Number
-      csv.push('ประเภท,เลข,ยอดที่รวม,ยอดที่รับ,ยอดส่งออก');
+      csv.push('ประเภท,เลข,ยอดส่งออก');
       const numberSummary = getNumberSummary();
       numberSummary.forEach(item => {
-          csv.push(`"${typeLabel(item.type)}","${item.num}",${item.receivedAmount},${item.retainedAmount},${item.exportedAmount}`);
+          csv.push(`"${typeLabel(item.type)}","${item.num}",${item.exportedAmount}`);
       });
 
       const csvString = csv.join('\n');
@@ -644,37 +702,49 @@ function calculatePayouts() {
     }
 
     function getNumberSummary() {
-        const numberSummary = {};
-        const maxRetained = {'3up':0, '3tod':20, '2up':50, '2down':50};
-
-        state.purchases.forEach(p => {
-            const key = p.type + p.num; 
-            if (!numberSummary[key]) {
-                numberSummary[key] = {
-                    num: p.num,
-                    type: p.type,
-                    receivedAmount: 0,
-                };
-            }
-            numberSummary[key].receivedAmount += p.amount;
-        });
+     const numberSummary = {};
+     state.purchases.forEach(p => {
+      const key = p.type + p.num; 
+       if (!numberSummary[key]) {
+         numberSummary[key] = {
+                num: p.num,
+                type: p.type,
+                receivedAmount: 0,
+           };
+         }
+        numberSummary[key].receivedAmount += p.amount;
+     });
 
         const sortedNumbers = Object.values(numberSummary).sort((a, b) => {
-            const typeOrder = ['3up', '3tod', '2up', '2down'];
-            const typeAIndex = typeOrder.indexOf(a.type);
-            const typeBIndex = typeOrder.indexOf(b.type);
-            if (typeAIndex !== typeBIndex) {
-                return typeAIndex - typeBIndex;
-            }
-            return a.num.localeCompare(b.num);
-        });
+        const typeOrder = ['3up', '3tod', '2up', '2down'];
+        const typeAIndex = typeOrder.indexOf(a.type);
+        const typeBIndex = typeOrder.indexOf(b.type);
+        if (typeAIndex !== typeBIndex) {
+            return typeAIndex - typeBIndex;
+          }
+        return a.num.localeCompare(b.num);
+     });
 
-        return sortedNumbers.map(item => {
-            const retainedAmount = Math.min(item.receivedAmount, maxRetained[item.type]);
-            const exportedAmount = item.receivedAmount - retainedAmount;
-            return {...item, retainedAmount, exportedAmount};
-        });
-    }
+      return sortedNumbers.map(item => {
+          let retainedAmount = 0;
+          if (item.type === '3tod') {
+          if (item.receivedAmount >= 20) {
+                retainedAmount = 20;
+           } else {
+                retainedAmount = 0;
+           }
+         } else {
+         if (item.receivedAmount >= 50) {
+          retainedAmount = 50;
+          } else {
+                retainedAmount = 0;
+         }
+       }
+
+        const exportedAmount = item.receivedAmount - retainedAmount;
+        return {...item, retainedAmount, exportedAmount};
+      });
+}
 
     function renderNumberSummaryTable() {
         const summaryTableBody = document.querySelector('#summaryNumberTable tbody');
@@ -692,6 +762,76 @@ function calculatePayouts() {
             summaryTableBody.appendChild(tr);
         });
     }
+    // ฟังก์ชันสำหรับสร้างตารางสรุปตามรูปแบบที่คุณต้องการ (ที่แสดงเฉพาะยอดเกิน)
+function renderHandwrittenSummaryTable() {
+    const tbody = document.querySelector('#handwrittenSummaryTable tbody');
+    tbody.innerHTML = '';
+    
+    // ดึงข้อมูลสรุปยอดซื้อที่ถูกกรองแล้ว (มีเฉพาะ exportedAmount > 0)
+    const numberSummary = getNumberSummary();
+
+    // 1. จัดกลุ่มข้อมูลตามประเภท (3up, 3tod, 2up, 2down)
+    const groupedSummary = numberSummary.reduce((acc, item) => {
+        if (!acc[item.type]) {
+            acc[item.type] = {
+                label: typeLabel(item.type),
+                numbers: []
+            };
+        }
+        acc[item.type].numbers.push(item);
+        return acc;
+    }, {});
+
+    // 2. เรียงลำดับประเภทตามที่ต้องการและแสดงผล
+    const typeOrder = ['3up', '3tod', '2up', '2down'];
+
+    typeOrder.forEach(typeKey => {
+        const group = groupedSummary[typeKey];
+        const numCount = group ? group.numbers.length : 0;
+        
+        // ถ้าไม่มีรายการเกินเลย ให้แสดงแถวเดียวและแจ้งว่าไม่มี
+        if (numCount === 0) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="col-type">${typeLabel(typeKey)}</td>
+                <td class="col-number-data" colspan="3" style="text-align: center; color: var(--muted); height: 50px;">ไม่มีรายการซื้อที่เกินยอดรับ (50/20 บาท)</td>
+            `;
+            tbody.appendChild(tr);
+            return;
+        }
+
+        // ถ้ามีรายการที่เกินยอดรับ
+        const firstItem = group.numbers[0];
+        
+        // สร้างแถวแรกพร้อม Rowspan
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="col-type" rowspan="${numCount}">${group.label}</td>
+            <td class="col-number-data">${firstItem.num}</td>
+            <td class="col-amount-data">${formatNumber(firstItem.receivedAmount)}</td>
+            <td class="col-amount-data" style="color: #ffd700;">${formatNumber(firstItem.exportedAmount)}</td>
+        `;
+        tbody.appendChild(tr);
+
+        // เติมข้อมูลที่เหลือในแถวถัดไป
+        for (let i = 1; i < numCount; i++) {
+            const item = group.numbers[i];
+            const nextTr = document.createElement('tr');
+            nextTr.innerHTML = `
+                <td class="col-number-data">${item.num}</td>
+                <td class="col-amount-data">${formatNumber(item.receivedAmount)}</td>
+                <td class="col-amount-data" style="color: #ffd700;">${formatNumber(item.exportedAmount)}</td>
+            `;
+            tbody.appendChild(nextTr);
+        }
+    });
+}
+
+
+       function updateUI(){ 
+        renderNumberSummaryTable();
+        renderHandwrittenSummaryTable();
+        }
 
     // load on start
     loadState(); requireLogin();
